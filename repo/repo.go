@@ -11,9 +11,8 @@ import (
     "go.mongodb.org/mongo-driver/mongo"
     "go.mongodb.org/mongo-driver/mongo/options"
 )
- 
 
-func FindBlog(title string) models.Blog {
+func FindBlog(title string ,blog chan models.Blog ) {
 	var result models.Blog
 	filter := bson.D{{"title", title}}
 	collection := GetMongoCollection()
@@ -24,7 +23,7 @@ func FindBlog(title string) models.Blog {
 		log.Fatal(err)
 	}
 
-	return result
+	blog <- result
 }
  
 func FindAllBlog() models.Blogs {

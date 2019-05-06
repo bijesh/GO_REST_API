@@ -11,6 +11,11 @@ import (
     "GO_REST_API/repo"
     "github.com/gorilla/mux"
 )
+func recoverName() {  
+    if r := recover(); r!= nil {
+        fmt.Println("recovered from ", r)
+    }
+}
 
 func Ping(w http.ResponseWriter, r *http.Request){
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -19,7 +24,8 @@ func Ping(w http.ResponseWriter, r *http.Request){
 }
 
 func PostBlog(w http.ResponseWriter, r *http.Request){
-	//fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+    //fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+    defer recoverName()
 	var blog models.Blog
     body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
     if err != nil {
@@ -29,14 +35,14 @@ func PostBlog(w http.ResponseWriter, r *http.Request){
         panic(err)
     }
     if err := json.Unmarshal(body, &blog); err != nil {
-        panic(err)
         w.WriteHeader(422) // unprocessable entity
         utils.Respond(w, utils.Message(false,"Error while processing the entity"))
+        panic(err)
     }
  
     if err := repo.CreateBlog(blog); err !=nil {
-        panic(err)
         utils.Respond(w, utils.Message(false, "error when posting Blog"))
+        panic(err)
     }
     w.Header().Set("Content-Type", "application/json; charset=UTF-8")
     w.WriteHeader(http.StatusCreated)
@@ -44,10 +50,13 @@ func PostBlog(w http.ResponseWriter, r *http.Request){
 }
 
 func GetBlog(w http.ResponseWriter, r *http.Request){
-	vars := mux.Vars(r)
+    chanBlog := make(chan models.Blog)
+    defer recoverName()
+   	vars := mux.Vars(r)
     blogId := vars["title"]
     fmt.Println(" title is :"+ blogId)
-	blog := repo.FindBlog(blogId)
+    go repo.FindBlog(blogId, chanBlog)
+    blog := <- chanBlog
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
     w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(blog); err != nil {
@@ -56,6 +65,7 @@ func GetBlog(w http.ResponseWriter, r *http.Request){
 }
 
 func GetBlogs(w http.ResponseWriter, r *http.Request){
+    defer recoverName()
 	blogs := models.Blogs{
 		models.Blog{Title : "Title 1",  Body : "My First blog"},
 		models.Blog{Title : "Title 2",  Body : "My Second blog"},
